@@ -53,10 +53,12 @@ export function BugList({
   projectId,
   workspaceId,
   initial,
+  canWrite,
 }: {
   projectId: string;
   workspaceId: string;
   initial: BugListRow[];
+  canWrite: boolean;
 }) {
   const [filters, setFilters] = useState<BugFilters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState('');
@@ -205,17 +207,20 @@ export function BugList({
       ) : (
         <ul className="divide-y rounded-lg border">
           <li className="flex items-center gap-3 bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+            {canWrite && (
             <Checkbox
               aria-label="Select all shown bugs"
               checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
               onCheckedChange={(v) => setSelected(v === true ? new Set(sorted.map((b) => b.id)) : new Set())}
             />
+            )}
             <span>
               {sorted.length} shown{selected.size > 0 && ` · ${selected.size} selected`}
             </span>
           </li>
           {sorted.map((b) => (
             <li key={b.id} className="flex items-center hover:bg-muted/50">
+              {canWrite && (
               <div className="flex items-center self-stretch pl-4">
                 <Checkbox
                   aria-label={`Select bug ${b.id}`}
@@ -223,6 +228,7 @@ export function BugList({
                   onCheckedChange={(v) => toggleSelected(b.id, v === true)}
                 />
               </div>
+              )}
               <Link
                 href={`/w/${workspaceId}/p/${projectId}/b/${b.id}`}
                 className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-sm focus-visible:bg-muted/50 focus-visible:outline-none"
@@ -249,7 +255,7 @@ export function BugList({
         </ul>
       )}
 
-      {selected.size > 0 && (
+      {canWrite && selected.size > 0 && (
         <BulkBar
           projectId={projectId}
           ids={[...selected]}

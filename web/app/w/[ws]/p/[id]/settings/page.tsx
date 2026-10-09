@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { TriangleAlertIcon } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
-import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDelete } from '@/components/confirm-delete';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
-import { updateProject } from '../../../actions';
+import { deleteProject, updateProject } from '../../../actions';
 import { ProjectForm } from '../../../project-form';
 
 export const metadata: Metadata = { title: 'Project settings' };
@@ -48,6 +50,23 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
             action={updateProject.bind(null, ws, id)}
             initial={project}
             submitLabel="Save changes"
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TriangleAlertIcon className="size-4" /> Delete project
+          </CardTitle>
+          <CardDescription>Removes the project with all of its scans and bugs. This cannot be undone.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ConfirmDelete
+            label="Delete project"
+            name={project.name}
+            description="All scans and bugs for this project are deleted for everyone in the workspace. This cannot be undone."
+            action={deleteProject.bind(null, ws, id)}
           />
         </CardContent>
       </Card>

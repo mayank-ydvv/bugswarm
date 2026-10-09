@@ -89,8 +89,9 @@ insert into results values ('worker role decrypts the stored key',
   (select decrypted_secret = 'test-key-0123456789abcdefghij' from vault.decrypted_secrets
    where id = (select gemini_secret_id from public.workspaces where id = 'c6afafd5-7ae6-43a4-b942-159785c83728')));
 
-select case when ok then 'PASS' else 'FAIL' end as result, check_name from results;
-select bool_or(not ok) as failed from results \gset
+select case when ok then 'PASS' when ok is null then 'FAIL (null)' else 'FAIL' end as result, check_name from results;
+-- "is not true": a NULL (unevaluable) check must fail, not pass.
+select coalesce(bool_or(ok is not true), true) as failed from results \gset
 rollback;
 \if :failed
   \echo 'Some checks FAILED'

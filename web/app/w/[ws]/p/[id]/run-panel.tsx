@@ -51,11 +51,13 @@ function useLiveRuns(projectId: string, initial: Run[]) {
 export function RunPanel({
   projectId,
   initialRuns,
+  canRun,
   workerOnline,
   workerLastSeen,
 }: {
   projectId: string;
   initialRuns: Run[];
+  canRun: boolean;
   workerOnline: boolean;
   workerLastSeen: string | null;
 }) {
@@ -91,6 +93,7 @@ export function RunPanel({
     <div className="grid gap-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Runs</h2>
+        {canRun ? (
         <div className="flex">
           <Button onClick={() => runNow(false)} disabled={disabled} className="rounded-r-none">
             <PlayIcon className="size-4" />
@@ -111,6 +114,9 @@ export function RunPanel({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Viewers can&apos;t start runs</span>
+        )}
       </div>
 
       {!workerOnline && (

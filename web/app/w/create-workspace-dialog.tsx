@@ -30,7 +30,7 @@ export function CreateWorkspaceDialog() {
         <form action={action} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>New workspace</DialogTitle>
-            <DialogDescription>Group projects and invite your team (invites come later).</DialogDescription>
+            <DialogDescription>Group projects and invite your team to them.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-1.5">
             <Label htmlFor="ws-name">Name</Label>

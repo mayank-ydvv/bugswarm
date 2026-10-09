@@ -8,6 +8,8 @@ const MAX_BUTTONS = 10;
 const MOBILE_PAGES = 10;
 const GOTO_TIMEOUT_MS = 15_000;
 const SETTLE_MS = 500;
+/** Soft budget inside the 10-minute tester limit: stop crawling and keep what was found. */
+const CRAWL_BUDGET_MS = 8 * 60_000;
 
 /** Never follow or click anything that could destroy data, end the session or spend money. */
 export const DESTRUCTIVE = /log\s*-?\s*out|sign\s*-?\s*out|delete|remove|destroy|unsubscribe|deactivate|purchase|checkout|\bpay\b/i;
@@ -34,11 +36,17 @@ class Crawl {
   readonly events: Event[] = [];
   readonly origin: string;
   readonly ctx: TesterContext;
+  private readonly deadline = Date.now() + CRAWL_BUDGET_MS;
   private readonly referrer = new Map<string, string>();
 
   constructor(ctx: TesterContext) {
     this.ctx = ctx;
     this.origin = new URL(ctx.baseUrl!).origin;
+  }
+
+  /** True once the run is aborted or the crawl budget is spent. */
+  stop(): boolean {
+    return this.ctx.signal.aborted || Date.now() > this.deadline;
   }
 
   /** Path for messages: stable across runs (the sandbox port changes every run). */
@@ -190,7 +198,7 @@ async function clickButtons(crawl: Crawl, page: Page, url: string) {
   const count = Math.min(await buttons.count().catch(() => 0), 50);
   let clicked = 0;
   for (let i = 0; i < count && clicked < MAX_BUTTONS; i++) {
-    if (crawl.ctx.signal.aborted) return;
+    if (crawl.stop()) return;
     const b = buttons.nth(i);
     if (!(await b.isVisible().catch(() => false)) || (await b.isDisabled().catch(() => true))) continue;
     const label = await buttonLabel(page, i);
@@ -226,7 +234,7 @@ async function clickButtons(crawl: Crawl, page: Page, url: string) {
 async function mobilePass(crawl: Crawl, context: BrowserContext, urls: string[]) {
   const page = await context.newPage();
   for (const url of urls.slice(0, MOBILE_PAGES)) {
-    if (crawl.ctx.signal.aborted) return;
+    if (crawl.stop()) return;
     try {
       await page.goto(url, { waitUntil: 'load', timeout: GOTO_TIMEOUT_MS });
       await page.waitForTimeout(300);
@@ -306,7 +314,10 @@ export const playwright: Tester = {
       const seen = new Set(queue);
       const visited: string[] = [];
       for (let head = 0; head < queue.length && visited.length < maxPages; head++) {
-        if (ctx.signal.aborted) break;
+        if (crawl.stop()) {
+          ctx.log(`crawl budget reached after ${visited.length} page(s); keeping results`);
+          break;
+        }
         const url = queue[head]!;
         const hrefs = await visit(crawl, page, url);
         if (!hrefs) continue;

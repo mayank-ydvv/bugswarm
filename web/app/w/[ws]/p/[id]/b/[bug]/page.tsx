@@ -10,6 +10,7 @@ import { bugLocation, githubBlobUrl, statusText } from '@/lib/bugs';
 import { relativeTime } from '@/lib/format';
 import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
+import { canWrite, myRole } from '@/lib/server/role';
 import type { Severity } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { StatusButtons, StatusSelect } from './bug-actions';
@@ -37,7 +38,7 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
   const projectId = uuidParam(raw.id);
   const bugId = z.coerce.number().int().positive().safeParse(raw.bug);
   if (!bugId.success) notFound();
-  const { supabase } = await requireUser();
+  const { supabase, userId } = await requireUser();
 
   const [{ data: bug, error }, { data: project }, { data: workspace }] = await Promise.all([
     supabase.from('bugs').select('*').eq('id', bugId.data).eq('project_id', projectId).maybeSingle(),
@@ -46,6 +47,7 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
   ]);
   if (error) throw new Error(error.message);
   if (!bug || !project || !workspace) notFound();
+  const writable = canWrite(await myRole(supabase, ws, userId));
 
   const runIds = [bug.first_seen_run, bug.last_seen_run, bug.fixed_run, bug.verified_run].filter(
     (r): r is number => r !== null,
@@ -59,9 +61,10 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
   const lastRun = bug.last_seen_run ? runById.get(bug.last_seen_run) : undefined;
 
   const evidence = (bug.evidence ?? {}) as Evidence;
-  const screenshotUrl = evidence.screenshot
-    ? (await supabase.storage.from('evidence').createSignedUrl(evidence.screenshot, 3600)).data?.signedUrl
-    : undefined;
+  // Signed URLs are checked against storage RLS: only members of the project's workspace get one.
+  const signed = async (path?: string) =>
+    path ? (await supabase.storage.from('evidence').createSignedUrl(path, 3600)).data?.signedUrl : undefined;
+  const [screenshotUrl, videoUrl] = await Promise.all([signed(evidence.screenshot), signed(evidence.video)]);
   const blobUrl = githubBlobUrl(project.repo_url, lastRun?.commit_sha ?? null, bug.file, bug.line);
   const pageUrl = bug.url && /^https?:\/\//.test(bug.url) ? bug.url : null;
   const prompt = bug.fix_prompt ?? bug.technical ?? bug.title;
@@ -90,7 +93,11 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
           <span className="text-muted-foreground">found by {bug.tester}</span>
           {!bug.explained && <Badge variant="secondary">Not explained yet</Badge>}
           <div className="ml-auto">
-            <StatusSelect bugId={bug.id} status={bug.status} />
+            {writable ? (
+              <StatusSelect bugId={bug.id} status={bug.status} />
+            ) : (
+              <Badge variant="secondary">{statusText(bug)}</Badge>
+            )}
           </div>
         </div>
       </div>
@@ -116,8 +123,21 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
             {evidence.snippet && <Snippet text={evidence.snippet} />}
           </Section>
 
-          {(screenshotUrl || evidence.log || bug.technical) && (
+          {(screenshotUrl || videoUrl || evidence.log || bug.technical) && (
             <Section title="Evidence">
+              {videoUrl && (
+                <figure className="flex flex-col gap-1">
+                  <video
+                    src={videoUrl}
+                    controls
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="max-h-96 w-full max-w-2xl rounded-md border bg-black"
+                  />
+                  <figcaption className="text-xs text-muted-foreground">Recording of the failing interaction</figcaption>
+                </figure>
+              )}
               {screenshotUrl && (
                 <a href={screenshotUrl} target="_blank" rel="noreferrer" className="block w-fit">
                   {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL */}
@@ -164,14 +184,16 @@ export default async function BugPage({ params }: { params: Promise<{ ws: string
             </CardContent>
           </Card>
 
-          <Card className="gap-3">
-            <CardHeader>
-              <CardTitle className="text-base">Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StatusButtons bugId={bug.id} status={bug.status} />
-            </CardContent>
-          </Card>
+          {writable && (
+            <Card className="gap-3">
+              <CardHeader>
+                <CardTitle className="text-base">Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StatusButtons bugId={bug.id} status={bug.status} />
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="gap-3">
             <CardHeader>

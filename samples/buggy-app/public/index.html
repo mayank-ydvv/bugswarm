@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Buggy Shop</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="banner">Free shipping on orders over $50 — limited time only!</div>
+    <h1>Buggy Shop</h1>
+    <!-- BUG (axe): image without alt text -->
+    <img src="/logo.svg" width="64" height="64" />
+    <p class="faint">Low-contrast fine print nobody can read.</p>
+    <nav>
+      <a href="/about.html">About</a>
+      <a href="/missing-page">Broken link</a>
+    </nav>
+    <p id="greeting"></p>
+    <input id="coupon" placeholder="Coupon code" />
+    <button id="apply">Apply coupon</button>
+    <!-- BUG (axe): icon button with no accessible name -->
+    <button id="close">✕</button>
+    <script type="module" src="/coupon.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

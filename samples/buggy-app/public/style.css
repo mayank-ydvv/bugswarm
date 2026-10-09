@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; margin: 0 1rem; }
+/* BUG (mobile overflow): fixed width wider than a phone screen. */
+.banner { width: 600px; background: #fde68a; padding: 0.5rem; }
+/* BUG (axe color-contrast). */
+.faint { color: #ddd; }
+nav a { margin-right: 1rem; }

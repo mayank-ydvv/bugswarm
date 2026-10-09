@@ -12,6 +12,12 @@ export const HARDENING = [
 
 export const APP_NETWORK = 'bsnet';
 
+/** Set once at startup from SANDBOX_RUNTIME (e.g. gVisor's "runsc"); applies to every container. */
+let runtime = '';
+export function setSandboxRuntime(name: string) {
+  runtime = name;
+}
+
 export interface Mount {
   host: string;
   container: string;
@@ -45,8 +51,9 @@ function hostUser(): string[] {
   return uid === undefined || gid === undefined ? [] : ['--user', `${uid}:${gid}`];
 }
 
-function baseArgs(spec: Omit<ContainerSpec, 'timeoutMs'>, name: string): string[] {
+export function baseArgs(spec: Omit<ContainerSpec, 'timeoutMs'>, name: string): string[] {
   const args = ['--name', name, ...HARDENING, `--network=${spec.network ?? 'none'}`];
+  if (runtime) args.push(`--runtime=${runtime}`);
   for (const m of spec.mounts ?? []) {
     args.push('-v', `${m.host}:${m.container}${m.readOnly ? ':ro' : ''}`);
   }

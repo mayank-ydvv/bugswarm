@@ -4,13 +4,13 @@ import type { Database } from '@/lib/database.types';
 
 const PROTECTED_PREFIXES = ['/w', '/invite'];
 
-/** Refreshes the auth cookie and sends signed-out visitors of app pages back to `/`. */
+/** Refreshes the auth cookie and sends signed-out visitors of app pages to `/login`. */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   // Not configured yet: let `/` render its setup notice.
-  if (!url || !key) return isProtected(request) ? redirectHome(request) : response;
+  if (!url || !key) return isProtected(request) ? redirectToLogin(request) : response;
 
   const supabase = createServerClient<Database>(url, key, {
     cookies: {
@@ -25,7 +25,7 @@ export async function updateSession(request: NextRequest) {
 
   // getClaims verifies the JWT; do not run code between client creation and this call.
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims && isProtected(request)) return redirectHome(request);
+  if (!data?.claims && isProtected(request)) return redirectToLogin(request);
   return response;
 }
 
@@ -34,10 +34,10 @@ function isProtected(request: NextRequest) {
   return PROTECTED_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
 }
 
-function redirectHome(request: NextRequest) {
+function redirectToLogin(request: NextRequest) {
   const url = request.nextUrl.clone();
   const next = request.nextUrl.pathname + request.nextUrl.search;
-  url.pathname = '/';
+  url.pathname = '/login';
   url.search = `?next=${encodeURIComponent(next)}`;
   return NextResponse.redirect(url);
 }

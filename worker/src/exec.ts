@@ -78,3 +78,25 @@ export async function runOk(cmd: string, args: string[], opts: ExecOptions): Pro
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Settle with `work`, or reject as soon as `signal` aborts. The limit holds even if `work` ignores
+ * the signal (its containers are killed separately by their own abort handlers).
+ */
+export function untilAborted<T>(work: Promise<T>, signal: AbortSignal, reason: () => string): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error(reason()));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new Error(reason()));
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(
+      (v) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(v);
+      },
+      (e: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(e);
+      },
+    );
+  });
+}

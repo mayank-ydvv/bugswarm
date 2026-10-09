@@ -4,6 +4,7 @@ import { LIMITS, type Config } from './config.ts';
 import type { Sql } from './db.ts';
 import { explainPending } from './explainer.ts';
 import { toBugs } from './normalize.ts';
+import { untilAborted } from './exec.ts';
 import { openSandbox, type Sandbox } from './sandbox.ts';
 import { autoFix, autoVerify, setTesterStatus, upsertBugs, type TesterCoverage } from './store.ts';
 import { resetSnippetCache } from './testers/util.ts';
@@ -150,13 +151,15 @@ export async function handleRun(deps: RunDeps, runId: number, readCt: number, ou
     const bugsNew = outcomes.reduce((n, o) => n + o.inserted, 0);
 
     await setTesterStatus(sql, runId, { explainer: 'running' });
-    const explained = await explainPending(sql, ai, project.id, usage, {
-      maxBatches: config.EXPLAIN_MAX_BATCHES,
-      log,
-    }).catch((err: unknown) => {
+    const explained = await untilAborted(
+      explainPending(sql, ai, project.id, usage, { maxBatches: config.EXPLAIN_MAX_BATCHES, log, signal }),
+      signal,
+      () => 'run exceeded 30 minutes',
+    ).catch((err: unknown) => {
       log(`explainer failed: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     });
+    if (signal.aborted) throw new Error(outer.aborted ? 'worker shutting down' : 'run exceeded 30 minutes');
     const explainerStatus = !ai.enabled ? 'skipped' : !explained ? 'failed' : explained.deferred ? 'deferred' : 'done';
 
     await sql`
@@ -255,7 +258,12 @@ async function runTester(
   let scope: string[] | null = null;
   const ctx: TesterContext = { ...base, signal, log, setScope: (files) => (scope = [...new Set(files)]) };
   try {
-    const findings = await tester.run(ctx);
+    // Hard 10-minute limit even if the tester ignores its signal.
+    const findings = await untilAborted(tester.run(ctx), signal, () =>
+      signal.reason instanceof DOMException && signal.reason.name === 'TimeoutError'
+        ? 'exceeded the 10 minute tester limit'
+        : 'run aborted',
+    );
     const rows = toBugs(findings, base.projectId, base.runId);
     const inserted = await upsertBugs(sql, rows);
     await setTesterStatus(sql, base.runId, { [tester.name]: 'done' });

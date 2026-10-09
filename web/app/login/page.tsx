@@ -17,6 +17,7 @@ const AUTH_ERRORS: Record<string, string> = {
   missing_code: 'Sign-in was interrupted. Please try again.',
   auth_failed: 'Could not complete sign-in. Please try again.',
   oauth_denied: 'GitHub sign-in was cancelled.',
+  oauth_expired: 'That sign-in attempt expired. Please try again.',
 };
 
 export default async function LoginPage({

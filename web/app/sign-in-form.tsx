@@ -59,7 +59,11 @@ export function SignInForm({ next, oauthError }: { next: string; oauthError?: st
             {error}
           </p>
         )}
-        <Button type="submit" disabled={pending}>
+        <Button
+          type="submit"
+          disabled={pending}
+          className="rounded-[24px] bg-[#8052ff] font-semibold tracking-[0.025em] text-white uppercase hover:bg-[#8052ff]/90"
+        >
           {mode === 'signin' ? 'Sign in' : 'Create account'}
         </Button>
       </form>

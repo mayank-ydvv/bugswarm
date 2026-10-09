@@ -1,7 +1,8 @@
 import { createAi } from './ai.ts';
 import { LIMITS, loadConfig } from './config.ts';
 import { connect } from './db.ts';
-import { ensureInternalNetwork } from './docker.ts';
+import { randomUUID } from 'node:crypto';
+import { ensureInternalNetwork, setSandboxRuntime } from './docker.ts';
 import { sleep } from './exec.ts';
 import { handleRun } from './run.ts';
 import { TESTERS } from './testers/index.ts';
@@ -12,6 +13,18 @@ const shutdown = new AbortController();
 
 const log = (msg: string) => console.log(`${new Date().toISOString()} ${msg}`);
 const ai = createAi(config, log);
+const workerId = randomUUID();
+let activeRuns = 0;
+const HEARTBEAT_MS = 60_000;
+
+/** Liveness for the dashboard's "worker offline" banner. Failures are logged, never fatal. */
+async function heartbeat() {
+  await sql`
+    insert into worker_heartbeats (id, concurrency, active_runs)
+    values (${workerId}, ${config.CONCURRENCY}, ${activeRuns})
+    on conflict (id) do update set last_seen_at = now(), active_runs = excluded.active_runs
+  `.catch((err: Error) => log(`heartbeat failed: ${err.message}`));
+}
 
 interface QueueMessage {
   msg_id: string;
@@ -43,6 +56,8 @@ async function loop(worker: number): Promise<void> {
     await sql`select pgmq.set_vt('runs', ${msg.msg_id}::bigint, ${LIMITS.runMs / 1000 + 600})`.catch(() => {});
     try {
       if (!Number.isSafeInteger(runId)) throw new Error(`bad message ${JSON.stringify(msg.message)}`);
+      activeRuns++;
+      void heartbeat();
       await handleRun(deps, runId, msg.read_ct, shutdown.signal);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
@@ -55,16 +70,21 @@ async function loop(worker: number): Promise<void> {
         `.catch(() => {});
       }
     } finally {
+      activeRuns = Math.max(0, activeRuns - 1);
       await sql`select pgmq.delete('runs', ${msg.msg_id}::bigint)`.catch(() => {});
     }
   }
 }
 
 async function main() {
+  setSandboxRuntime(config.SANDBOX_RUNTIME);
   await ensureInternalNetwork();
+  await heartbeat();
+  const beat = setInterval(() => void heartbeat(), HEARTBEAT_MS);
   log(
     `worker started: concurrency=${config.CONCURRENCY}, testers=${TESTERS.map((t) => t.name).join(',')}, ` +
-      `ai=${[config.GEMINI_KEY && 'gemini', config.OPENROUTER_KEY && 'openrouter'].filter(Boolean).join('+') || 'off'}`,
+      `ai=${[config.GEMINI_KEY && 'gemini', config.OPENROUTER_KEY && 'openrouter'].filter(Boolean).join('+') || 'off'}` +
+      `${config.SANDBOX_RUNTIME ? `, sandbox runtime=${config.SANDBOX_RUNTIME}` : ''}`,
   );
   const loops = Array.from({ length: config.CONCURRENCY }, (_, i) => loop(i + 1));
 
@@ -77,6 +97,9 @@ async function main() {
   process.on('SIGTERM', () => stop('SIGTERM'));
 
   await Promise.all(loops);
+  clearInterval(beat);
+  // Leaving cleanly: drop our heartbeat so the dashboard doesn't wait 3 minutes to notice.
+  await sql`delete from worker_heartbeats where id = ${workerId}`.catch(() => {});
   await sql.end({ timeout: 5 });
   log('worker stopped');
 }

@@ -1,0 +1,36 @@
+# /etc/systemd/system/bugswarm-worker.service
+[Unit]
+Description=BugSwarm worker (runs queued scans)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=bugswarm
+Group=bugswarm
+# Membership in "docker" is root-equivalent on this host: keep this machine dedicated to the worker.
+SupplementaryGroups=docker
+WorkingDirectory=/opt/bugswarm/worker
+EnvironmentFile=/etc/bugswarm/worker.env
+Environment=NODE_ENV=production
+Environment=WORK_ROOT=/var/lib/bugswarm/work
+# Temp files are bind-mounted into sandbox containers, so they must live where the Docker daemon can
+# see them (not a PrivateTmp namespace).
+Environment=TMPDIR=/var/lib/bugswarm/tmp
+Environment=PLAYWRIGHT_BROWSERS_PATH=/var/lib/bugswarm/ms-playwright
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+# SIGTERM: the worker stops polling, marks active runs failed and removes its heartbeat.
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/bugswarm
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

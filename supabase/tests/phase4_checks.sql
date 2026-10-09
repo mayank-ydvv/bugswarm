@@ -48,6 +48,15 @@ exception when insufficient_privilege then
   insert into results values ('owners cannot repoint gemini_secret_id directly', true);
 end $$;
 
+do $$
+begin
+  insert into public.worker_heartbeats (id, concurrency) values ('fake-worker', 1);
+  insert into results values ('users cannot fake a worker heartbeat', false);
+exception when insufficient_privilege then
+  insert into results values ('users cannot fake a worker heartbeat', true);
+end $$;
+insert into results values ('users can read worker status', (select count(*) = 1 from public.worker_status));
+
 -- Member (not owner).
 set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 do $$
@@ -63,6 +72,16 @@ begin
   insert into results values ('users cannot call enqueue_scheduled', false);
 exception when insufficient_privilege then
   insert into results values ('users cannot call enqueue_scheduled', true);
+end $$;
+
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+do $$
+begin
+  perform 1 from public.worker_status;
+  insert into results values ('anon cannot read worker status', false);
+exception when insufficient_privilege then
+  insert into results values ('anon cannot read worker status', true);
 end $$;
 
 reset role;

@@ -163,6 +163,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"worker_heartbeats": {
+                  Row: {
+                    "active_runs": number,"concurrency": number,"id": string,"last_seen_at": string,"started_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active_runs"?: number,"concurrency": number,"id": string,"last_seen_at"?: string,"started_at"?: string
+                  }
+                  Update: {
+                    "active_runs"?: number,"concurrency"?: number,"id"?: string,"last_seen_at"?: string,"started_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"workspace_members": {
                   Row: {
                     "role": string,"user_id": string,"workspace_id": string
@@ -245,6 +259,14 @@ isOneToOne: false
       referencedRelation: "workspaces"
       referencedColumns: ["id"]
     }
+                  ]
+                },"worker_status": {
+                  Row: {
+                    "active_runs": number | null,"last_seen_at": string | null,"online": boolean | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
                   ]
                 },"workspace_summaries": {
                   Row: {

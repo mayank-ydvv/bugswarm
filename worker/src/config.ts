@@ -29,6 +29,14 @@ const EnvSchema = z.object({
   // `--config auto` requires sending metrics to Semgrep; a registry ruleset does not.
   SEMGREP_CONFIG: z.string().default('p/default'),
   SANDBOX_IMAGE: z.string().default('node:20-slim'),
+  // Extra kernel isolation for untrusted code, e.g. "runsc" (gVisor). Empty = Docker's default runtime.
+  SANDBOX_RUNTIME: z
+    .string()
+    .regex(/^[a-z0-9_-]*$/)
+    .default(''),
+  // Housekeeping: evidence files and AI cache entries older than this are deleted.
+  EVIDENCE_RETENTION_DAYS: z.coerce.number().int().min(1).default(30),
+  LLM_CACHE_RETENTION_DAYS: z.coerce.number().int().min(1).default(90),
   // Overridable so tests can point the AI clients at a local mock server.
   GEMINI_BASE_URL: z.url().default('https://generativelanguage.googleapis.com/v1beta/openai/'),
   OPENROUTER_BASE_URL: z.url().default('https://openrouter.ai/api/v1'),

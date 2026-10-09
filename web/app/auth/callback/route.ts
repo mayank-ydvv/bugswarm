@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
-  const fail = (error: string) => NextResponse.redirect(`${origin}/?error=${error}`);
+  const fail = (error: string) => NextResponse.redirect(`${origin}/login?error=${error}`);
 
   const code = searchParams.get('code');
   if (!code) return fail(searchParams.get('error') === 'access_denied' ? 'oauth_denied' : 'missing_code');

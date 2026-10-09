@@ -1,6 +1,6 @@
 import { runContainer } from '../docker.ts';
 import { LIMITS } from '../config.ts';
-import type { RawFinding, Tester } from '../types.ts';
+import type { RawFinding, Severity, Tester } from '../types.ts';
 import { parseJson, skip, toRepoPath } from './util.ts';
 
 const LOCKFILE = /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|requirements\.txt|poetry\.lock|Pipfile\.lock|go\.sum|Cargo\.lock|Gemfile\.lock|composer\.lock)$/;
@@ -12,6 +12,14 @@ interface OsvPackage {
 }
 interface OsvOutput {
   results?: { source: { path: string }; packages: OsvPackage[] }[];
+}
+
+/** CVSS v3 qualitative ratings; no score means OSV couldn't rate it, so keep the dependency default. */
+function cvssSeverity(score: number): Severity | undefined {
+  if (score >= 9) return 'critical';
+  if (score >= 7) return 'high';
+  if (score >= 4) return 'medium';
+  return score > 0 ? 'low' : undefined;
 }
 
 /** One finding per vulnerable package. The message avoids IDs so a version bump keeps the same bug. */
@@ -35,6 +43,7 @@ export function mapOsv(out: OsvOutput): RawFinding[] {
         message: `${p.package.name}@${p.package.version} has ${n} known ${n === 1 ? 'vulnerability' : 'vulnerabilities'}${maxCvss ? ` (max CVSS ${maxCvss})` : ''}`,
         file,
         evidence: { log },
+        severity: cvssSeverity(maxCvss),
       });
     }
   }

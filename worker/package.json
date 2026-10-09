@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=../.env --watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file-if-exists=../.env dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "housekeeping": "node --env-file-if-exists=../.env src/housekeeping.ts"
   },
   "dependencies": {
     "axe-core": "^4.14.0",

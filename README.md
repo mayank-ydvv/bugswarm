@@ -134,7 +134,8 @@ cd worker && node --env-file=../.env src/scripts/sandbox-smoke.ts <projectId>
   - Nightly runs are full scans; hourly and push runs are incremental.
   - **An hourly run with no new commits and no live URL finishes after the git fetch, without Docker** (measured: 88 ms, zero containers created).
 - **GitHub webhook** (`POST /api/github/webhook`):
-  - Verifies `x-hub-signature-256` with HMAC-SHA256 and `timingSafeEqual`, checking lengths first.
+  - Each project has its own secret (Project settings → Scan on every push, with copy buttons and Rotate). The column is hidden from clients; owners and members read it through `project_webhook_secret()`.
+  - Verifies `x-hub-signature-256` with HMAC-SHA256 and `timingSafeEqual`, checking lengths first, against each matching project's secret. A push starts runs only for the projects whose secret signed it. Optional `GH_WEBHOOK_SECRET` is an operator-wide secret that matches every project.
   - Accepts `push` events only, and matches projects by clone or HTML URL plus branch.
   - Starts an incremental `push` run with the service-role client.
 - **Scoped auto-fix.**

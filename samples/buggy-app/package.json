@@ -1,0 +1,19 @@
+{
+  "name": "bugswarm-buggy-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deliberately buggy app for testing BugSwarm. Do not deploy.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "lodash": "4.17.15"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FolderGitIcon, GlobeIcon, SettingsIcon } from 'lucide-react';
@@ -15,6 +16,12 @@ import { cn } from '@/lib/utils';
 import { bugPageQuery, DEFAULT_FILTERS } from '@/lib/bugs';
 import { BugList } from './bug-list';
 import { RunPanel } from './run-panel';
+
+export async function generateMetadata({ params }: { params: Promise<{ ws: string; id: string }> }): Promise<Metadata> {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('projects').select('name').eq('id', uuidParam((await params).id)).maybeSingle();
+  return { title: data?.name ?? 'Project' };
+}
 
 export default async function ProjectPage({ params }: { params: Promise<{ ws: string; id: string }> }) {
   const raw = await params;
@@ -44,7 +51,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
   const p = project.data;
   const bySeverity = new Map<Severity, number>();
   for (const c of counts.data ?? []) if (c.severity) bySeverity.set(c.severity, c.open_count ?? 0);
-  const health = healthScore(Object.fromEntries(bySeverity));
+  // No score until a scan has finished: "100" for a never-tested project would be misleading.
+  const scanned = (runs.data ?? []).some((r) => r.status === 'done');
+  const health = scanned ? healthScore(Object.fromEntries(bySeverity)) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,7 +83,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
               </a>
             )}
             <span>
-              {SCHEDULE_LABEL[p.schedule]} · <NextRun schedule={p.schedule} />
+              {p.schedule === 'off' ? 'Scheduling off' : <>{SCHEDULE_LABEL[p.schedule]} · <NextRun schedule={p.schedule} /></>}
             </span>
           </div>
         </div>
@@ -93,12 +102,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
           <CardContent className="px-4">
             <p className="text-xs text-muted-foreground">Health</p>
             <p
+              title={health === null ? 'Shown after the first scan finishes' : undefined}
               className={cn(
                 'text-2xl font-semibold tabular-nums',
-                health >= 80 ? 'text-emerald-600 dark:text-emerald-400' : health >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400',
+                health === null ? 'text-muted-foreground' : health >= 80 ? 'text-emerald-600 dark:text-emerald-400' : health >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400',
               )}
             >
-              {health}
+              {health ?? '—'}
             </p>
           </CardContent>
         </Card>

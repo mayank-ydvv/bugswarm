@@ -177,16 +177,42 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
-                },"workspace_members": {
+                },"workspace_invites": {
                   Row: {
-                    "role": string,"user_id": string,"workspace_id": string
+                    "accepted_at": string | null,"accepted_by": string | null,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string,"role": string,"token_hash": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "role"?: string,"user_id": string,"workspace_id": string
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"created_at"?: string,"email": string,"expires_at"?: string,"id"?: string,"invited_by": string,"role"?: string,"token_hash": string,"workspace_id": string
                   }
                   Update: {
-                    "role"?: string,"user_id"?: string,"workspace_id"?: string
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"created_at"?: string,"email"?: string,"expires_at"?: string,"id"?: string,"invited_by"?: string,"role"?: string,"token_hash"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "workspace_invites_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspace_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "workspace_invites_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"workspace_members": {
+                  Row: {
+                    "created_at": string,"role": string,"user_id": string,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"role"?: string,"user_id": string,"workspace_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"role"?: string,"user_id"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -279,11 +305,27 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "clear_workspace_gemini_key":
+            "accept_workspace_invite":
+{ Args: { "token": string }; Returns: string
+                           },
+"clear_workspace_gemini_key":
 { Args: { "ws": string }; Returns: undefined
+                           },
+"create_workspace_invite":
+{ Args: { "invite_email": string,"invite_role"?: string,"ws": string }; Returns: string
                            },
 "enqueue_scheduled":
 { Args: { "freq": Database["public"]['Enums']["run_schedule"] }; Returns: number
+                           },
+"list_workspace_members":
+{ Args: { "ws": string }; Returns: {
+              "email": string,"joined_at": string,"role": string,"user_id": string
+            }[]
+                           },
+"peek_workspace_invite":
+{ Args: { "token": string }; Returns: {
+              "accepted": boolean,"email_matches": boolean,"expired": boolean,"role": string,"workspace_name": string
+            }[]
                            },
 "set_workspace_gemini_key":
 { Args: { "api_key": string,"ws": string }; Returns: undefined

@@ -1,0 +1,14 @@
+# Only the web app and the workspace manifests it needs to install are uploaded to Vercel.
+.env
+.env.*
+!.env.example
+node_modules
+web/.next
+web/.next-prod
+worker/src
+worker/dist
+samples
+supabase
+deploy
+scripts
+*.md

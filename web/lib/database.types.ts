@@ -113,14 +113,14 @@ isOneToOne: false
                   ]
                 },"projects": {
                   Row: {
-                    "branch": string,"created_at": string,"id": string,"last_scanned_sha": string | null,"live_url": string | null,"name": string,"port": number,"repo_url": string | null,"schedule": Database["public"]['Enums']["run_schedule"],"start_cmd": string,"workspace_id": string
+                    "branch": string,"created_at": string,"id": string,"last_scanned_sha": string | null,"live_url": string | null,"name": string,"port": number,"repo_url": string | null,"schedule": Database["public"]['Enums']["run_schedule"],"start_cmd": string,"webhook_secret": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "branch"?: string,"created_at"?: string,"id"?: string,"last_scanned_sha"?: string | null,"live_url"?: string | null,"name": string,"port"?: number,"repo_url"?: string | null,"schedule"?: Database["public"]['Enums']["run_schedule"],"start_cmd"?: string,"workspace_id": string
+                    "branch"?: string,"created_at"?: string,"id"?: string,"last_scanned_sha"?: string | null,"live_url"?: string | null,"name": string,"port"?: number,"repo_url"?: string | null,"schedule"?: Database["public"]['Enums']["run_schedule"],"start_cmd"?: string,"webhook_secret"?: string,"workspace_id": string
                   }
                   Update: {
-                    "branch"?: string,"created_at"?: string,"id"?: string,"last_scanned_sha"?: string | null,"live_url"?: string | null,"name"?: string,"port"?: number,"repo_url"?: string | null,"schedule"?: Database["public"]['Enums']["run_schedule"],"start_cmd"?: string,"workspace_id"?: string
+                    "branch"?: string,"created_at"?: string,"id"?: string,"last_scanned_sha"?: string | null,"live_url"?: string | null,"name"?: string,"port"?: number,"repo_url"?: string | null,"schedule"?: Database["public"]['Enums']["run_schedule"],"start_cmd"?: string,"webhook_secret"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -326,6 +326,12 @@ isOneToOne: false
 { Args: { "token": string }; Returns: {
               "accepted": boolean,"email_matches": boolean,"expired": boolean,"role": string,"workspace_name": string
             }[]
+                           },
+"project_webhook_secret":
+{ Args: { "p": string }; Returns: string
+                           },
+"rotate_project_webhook_secret":
+{ Args: { "p": string }; Returns: string
                            },
 "set_workspace_gemini_key":
 { Args: { "api_key": string,"ws": string }; Returns: undefined

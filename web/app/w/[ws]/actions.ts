@@ -159,3 +159,13 @@ export async function renameWorkspace(workspaceId: string, _prev: RenameState, f
   revalidatePath(`/w/${parsed.data.ws}`, 'layout');
   return { ok: true };
 }
+
+export async function rotateWebhookSecret(workspaceId: string, projectId: string): Promise<{ error?: string; secret?: string }> {
+  const ids = z.object({ ws: z.uuid(), p: z.uuid() }).safeParse({ ws: workspaceId, p: projectId });
+  if (!ids.success) return { error: 'Unknown project' };
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase.rpc('rotate_project_webhook_secret', { p: ids.data.p });
+  if (error) return { error: 'Could not rotate the secret' };
+  if (!data) return { error: 'You do not have permission to change this project' };
+  return { secret: data };
+}

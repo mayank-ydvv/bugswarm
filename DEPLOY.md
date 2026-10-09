@@ -81,7 +81,7 @@ Who does each step: **You** = needs your accounts, payments or secrets. **Me** =
    so you paste them:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`: public, from the Supabase dashboard
    - `SUPABASE_SERVICE_ROLE_KEY`: server only
-   - `GH_WEBHOOK_SECRET`: generate a **new** one; don't reuse the local test value
+   - `GH_WEBHOOK_SECRET`: optional. Webhooks use per-project secrets (Project settings → Scan on every push)
 3. **Me:** deploy, then smoke-test: landing page loads, `/w` redirects when signed out, and
    `POST /api/github/webhook` with no signature returns 401.
 
@@ -100,8 +100,8 @@ Who does each step: **You** = needs your accounts, payments or secrets. **Me** =
 ### 4. GitHub (about 10 minutes, **you**)
 1. Create a **new production OAuth app**. Callback URL: `https://<project-ref>.supabase.co/auth/v1/callback`,
    homepage: the web URL. Put its ID and secret into Supabase (step 1.5). Keep the local one for development.
-2. In each repo you want scanned on push, add a webhook: `https://<web-url>/api/github/webhook`,
-   `application/json`, the new secret, "Just the push event". For `bugswarm-buggy-app`, **edit** the existing
+2. In each repo you want scanned on push, open the project's settings → **Scan on every push**, then add
+   a GitHub webhook with the payload URL and secret shown there, `application/json`, "Just the push event". For `bugswarm-buggy-app`, **edit** the existing
    webhook instead of adding one (its tunnel URL is dead).
 
 ### 5. End-to-end verification (**me**)

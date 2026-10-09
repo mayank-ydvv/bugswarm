@@ -25,8 +25,27 @@ const COLUMNS = [
  * One INSERT ... ON CONFLICT per chunk. A fixed/verified bug that shows up again reopens as a
  * regression; ignored and in-progress bugs keep their status. Returns how many rows were new.
  */
+/**
+ * Fingerprints changed in v2 (quoted identifiers now count). Before inserting, re-key a matching
+ * pre-v2 row to its new fingerprint so it keeps its status, history and explanation. If one old bug
+ * splits into several new ones, the first claims the row and the rest are inserted as new bugs.
+ */
+async function adoptLegacyRows(sql: Sql, rows: BugRow[]): Promise<void> {
+  const pairs = rows.filter((r) => r.legacy_fingerprint !== r.fingerprint);
+  if (pairs.length === 0) return;
+  const projectId = pairs[0]!.project_id;
+  await sql`
+    update bugs b set fingerprint = m.fp
+    from (values ${sql(pairs.map((r) => [r.legacy_fingerprint, r.fingerprint]))}) as m(legacy, fp)
+    where b.project_id = ${projectId}
+      and b.fingerprint = m.legacy
+      and not exists (select 1 from bugs x where x.project_id = ${projectId} and x.fingerprint = m.fp)
+  `;
+}
+
 export async function upsertBugs(sql: Sql, rows: BugRow[]): Promise<number> {
   let inserted = 0;
+  await adoptLegacyRows(sql, rows);
   for (let i = 0; i < rows.length; i += CHUNK) {
     // sql.json makes the jsonb encoding explicit (a pre-stringified value would be stored as a JSON string).
     const chunk = rows.slice(i, i + CHUNK).map((r) => ({ ...r, evidence: sql.json(r.evidence as postgres.JSONValue) }));

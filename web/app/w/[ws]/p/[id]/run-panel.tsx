@@ -142,26 +142,28 @@ export function RunPanel({
           {runs.length === 0 ? (
             <p className="px-6 py-6 text-sm text-muted-foreground">No runs yet. Click Run now to start one.</p>
           ) : (
+            // From lg up this panel is the narrow right-hand column, so Scope and AI calls (also shown on
+            // the latest-run card) are dropped there instead of scrolling the table sideways.
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-muted-foreground">
                   <tr className="border-b">
-                    <th className="px-4 py-2 font-medium">Run</th>
+                    <th className="px-3 py-2 font-medium">Run</th>
                     <th className="px-2 py-2 font-medium">Status</th>
                     <th className="px-2 py-2 font-medium">Trigger</th>
-                    <th className="hidden px-2 py-2 font-medium sm:table-cell lg:hidden xl:table-cell">Scope</th>
+                    <th className="hidden px-2 py-2 font-medium sm:table-cell lg:hidden">Scope</th>
                     <th className="px-2 py-2 text-right font-medium">New</th>
                     <th className="px-2 py-2 text-right font-medium">Fixed</th>
-                    <th className="hidden px-2 py-2 text-right font-medium sm:table-cell">Duration</th>
-                    <th className="hidden px-4 py-2 text-right font-medium md:table-cell">AI calls</th>
+                    <th className="hidden py-2 pr-3 pl-2 text-right font-medium sm:table-cell">Duration</th>
+                    <th className="hidden px-4 py-2 text-right font-medium md:table-cell lg:hidden">AI calls</th>
                   </tr>
                 </thead>
                 <tbody>
                   {runs.map((r) => (
                     <tr key={r.id} className="border-b last:border-0">
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <span className="font-mono">#{r.id}</span>{' '}
-                        <span className="text-muted-foreground">{relativeTime(r.created_at)}</span>
+                      <td className="px-3 py-2">
+                        <span className="font-mono">#{r.id}</span>
+                        <span className="block text-xs whitespace-nowrap text-muted-foreground">{relativeTime(r.created_at)}</span>
                       </td>
                       <td className="px-2 py-2">
                         <RunStatusBadge status={r.status} />
@@ -169,13 +171,13 @@ export function RunPanel({
                       <td className="px-2 py-2">
                         <TriggerBadge trigger={r.trigger} />
                       </td>
-                      <td className="hidden px-2 py-2 sm:table-cell lg:hidden xl:table-cell">{r.full_scan ? 'Full' : 'Incremental'}</td>
+                      <td className="hidden px-2 py-2 sm:table-cell lg:hidden">{r.full_scan ? 'Full' : 'Incremental'}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{r.bugs_new ?? '—'}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{r.bugs_fixed ?? '—'}</td>
-                      <td className="hidden px-2 py-2 text-right tabular-nums sm:table-cell">
+                      <td className="hidden py-2 pr-3 pl-2 text-right tabular-nums sm:table-cell">
                         {duration(r.started_at, r.finished_at)}
                       </td>
-                      <td className="hidden px-4 py-2 text-right md:table-cell">{aiCalls(r.ai_usage)}</td>
+                      <td className="hidden px-4 py-2 text-right md:table-cell lg:hidden">{aiCalls(r.ai_usage)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -205,7 +207,9 @@ function LatestRun({ run }: { run: Run }) {
           {run.status === 'queued' && `Queued ${relativeTime(run.created_at)}. Waiting for a worker…`}
           {run.status === 'running' && `Started ${relativeTime(run.started_at)}`}
           {(run.status === 'done' || run.status === 'failed') &&
-            `Finished ${relativeTime(run.finished_at)} · ${run.bugs_new ?? 0} new, ${run.bugs_fixed ?? 0} fixed`}
+            `Finished ${relativeTime(run.finished_at)} · ${run.bugs_new ?? 0} new, ${run.bugs_fixed ?? 0} fixed${
+              aiCalls(run.ai_usage) === '—' ? '' : ` · AI calls: ${aiCalls(run.ai_usage)}`
+            }`}
         </p>
         {testers.length > 0 && (
           <ul className="flex flex-wrap gap-2">

@@ -22,7 +22,9 @@ export function BulkBar({ projectId, ids, onDone }: { projectId: string; ids: nu
     start(async () => {
       const res = await setBugsStatus({ projectId, ids, status, path });
       if (res.error) return void toast.error(res.error);
-      toast.success(`${res.updated} bug(s) marked ${STATUS_LABEL[status as keyof typeof STATUS_LABEL].toLowerCase()}`);
+      toast.success(
+        `${res.updated} ${res.updated === 1 ? 'bug' : 'bugs'} marked as ${STATUS_LABEL[status as keyof typeof STATUS_LABEL].toLowerCase()}`,
+      );
       onDone();
     });
 

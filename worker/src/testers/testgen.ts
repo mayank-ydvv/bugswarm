@@ -59,7 +59,17 @@ export interface TestFailure {
 }
 
 /** Failures that come from a broken generated test rather than from the code under test. */
-const INVALID_TEST = /SyntaxError|ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named|is not exported/;
+const INVALID_TEST =
+  /SyntaxError|ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION|ERR_REQUIRE_ESM|Cannot find module|does not provide an export named|is not exported|Unexpected token/;
+
+/**
+ * node:test reports a test file that crashes while loading (a bad import, an unsupported file type) as
+ * one failure named after the file itself, with the real error only on stderr. That says nothing
+ * about the code under test, so it must never become a bug.
+ */
+export function isLoadFailure(f: TestFailure, testFile: string): boolean {
+  return f.name.endsWith(testFile) || INVALID_TEST.test(f.error);
+}
 
 /** Node's TAP reporter: `not ok N - name` followed by an indented YAML block. */
 export function parseTap(output: string): TestFailure[] {
@@ -144,8 +154,8 @@ export const testgen: Tester = {
     if (runner !== 'node' && !ctx.installed) skip(`${runner} is not installed`);
     const moduleType = pkg.type === 'module' ? 'module' : 'commonjs';
 
-    // node:test on Node 20 cannot import TypeScript, so only plain JS is testable without a runner.
-    const testable = (f: string) => isSource(f) && (runner !== 'node' || /\.(c|m)?jsx?$/.test(f));
+    // node:test on Node 20 cannot import TypeScript or JSX, so only plain JS is testable without a runner.
+    const testable = (f: string) => isSource(f) && (runner !== 'node' || /\.(c|m)?js$/.test(f));
     const counts = await ctx.toolFindingCounts();
     const paths = (ctx.fullScan ? await trackedSourceFiles(dir) : ctx.changed)
       .filter(testable)
@@ -214,7 +224,7 @@ export const testgen: Tester = {
       };
       for (const f of failures) {
         const hit = sourceOf(f.file);
-        if (!hit || INVALID_TEST.test(f.error)) continue;
+        if (!hit || isLoadFailure(f, hit.testFile)) continue;
         const testCode = await readFile(join(dir, hit.testFile), 'utf8').catch(() => '');
         findings.push({
           tester: 'testgen',

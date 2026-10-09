@@ -30,6 +30,8 @@ export interface RawFinding {
   url?: string;
   evidence?: Evidence;
   repro?: string[];
+  /** Overrides the category's default severity when the tool itself rates the problem (e.g. CVSS). */
+  severity?: Severity;
 }
 
 export interface ExecOpts {

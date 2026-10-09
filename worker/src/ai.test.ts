@@ -99,4 +99,10 @@ test('validateExplanations keeps batch ids only and defaults bad severities', ()
   assert.equal(out[1]!.severity, 'low', 'invalid severity keeps the default');
   assert.equal(out[1]!.expected, null);
   assert.deepEqual(validateExplanations({ nope: 1 }, batch), []);
+
+  const cvss = validateExplanations(
+    { bugs: [{ id: 7, title: 't', summary: 's', severity: 'critical' }] },
+    new Map([[7, { severity: 'high' as const, tester: 'osv' }]]),
+  );
+  assert.equal(cvss[0]!.severity, 'high', 'CVSS-rated findings keep the tool severity');
 });

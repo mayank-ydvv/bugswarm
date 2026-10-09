@@ -67,6 +67,7 @@ test('osv gives one finding per vulnerable package', () => {
   assert.equal(f.length, 1);
   assert.equal(f[0]!.message, 'lodash@4.17.15 has 2 known vulnerabilities (max CVSS 7.4)');
   assert.equal(f[0]!.file, 'package-lock.json');
+  assert.equal(f[0]!.severity, 'high');
   assert.match(f[0]!.evidence!.log!, /CVE-2020-1/);
 });
 

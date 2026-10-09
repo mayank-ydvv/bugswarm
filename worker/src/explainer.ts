@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AiUnavailable, type AiClient, type AiUsage } from './ai.ts';
 import type { Sql } from './db.ts';
-import { redactSecrets } from './normalize.ts';
+import { redactSecrets, TOOL_RATED } from './normalize.ts';
 import { buildPrompt } from './prompt.ts';
 import type { Severity } from './types.ts';
 
@@ -31,6 +31,7 @@ interface PendingBug {
   url: string | null;
   repro_steps: string[] | null;
   snippet: string | null;
+  log: string | null;
   severity: Severity;
 }
 
@@ -51,7 +52,10 @@ export interface Explanation {
 }
 
 /** Keep only items for bugs in this batch; an unknown severity keeps the bug's default. */
-export function validateExplanations(raw: unknown, batch: Map<number, { severity: Severity }>): Explanation[] {
+export function validateExplanations(
+  raw: unknown,
+  batch: Map<number, { severity: Severity; tester?: string }>,
+): Explanation[] {
   const list = (raw as { bugs?: unknown })?.bugs;
   if (!Array.isArray(list)) return [];
   const out = new Map<number, Explanation>();
@@ -61,9 +65,10 @@ export function validateExplanations(raw: unknown, batch: Map<number, { severity
     const item = parsed.data;
     const original = batch.get(item.id);
     if (!original || out.has(item.id)) continue;
-    const severity = (SEVERITIES as readonly string[]).includes(item.severity.toLowerCase())
-      ? (item.severity.toLowerCase() as Severity)
-      : original.severity;
+    const severity =
+      !TOOL_RATED.has(original.tester ?? '') && (SEVERITIES as readonly string[]).includes(item.severity.toLowerCase())
+        ? (item.severity.toLowerCase() as Severity)
+        : original.severity;
     out.set(item.id, {
       id: item.id,
       title: item.title.slice(0, 80),
@@ -107,7 +112,7 @@ export async function explainPending(
   while (batches < opts.maxBatches && !opts.signal?.aborted) {
     const pending = await sql<PendingBug[]>`
       select id, category, tester, technical, file, line, url, repro_steps,
-             evidence->>'snippet' as snippet, severity
+             evidence->>'snippet' as snippet, evidence->>'log' as log, severity
       from bugs
       where project_id = ${projectId} and not explained and status in ('open', 'in_progress')
       order by id
@@ -153,6 +158,7 @@ async function applyExplanations(sql: Sql, items: Explanation[], byId: Map<numbe
       summary: e.summary,
       technical: b.technical,
       snippet: b.snippet,
+      log: b.log,
       repro_steps: b.repro_steps,
       expected: e.expected,
     });

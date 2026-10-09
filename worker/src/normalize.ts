@@ -49,6 +49,12 @@ export function legacyFingerprint(f: FingerprintInput): string {
   return hash(f, normalizeLegacy(f.message));
 }
 
+/**
+ * Testers whose severity comes from a standard score (CVSS). The AI explainer rewrites their wording
+ * but keeps the rating, and a rescan refreshes it when the score changes.
+ */
+export const TOOL_RATED = new Set(['osv']);
+
 export const DEFAULT_SEVERITY: Record<Category, Severity> = {
   security: 'high',
   logic: 'high',
@@ -133,7 +139,7 @@ export function toBugs(findings: RawFinding[], projectId: string, runId: number)
     const base = {
       title: message.split('\n')[0]!.slice(0, 120),
       technical: message.slice(0, 4000),
-      severity: DEFAULT_SEVERITY[f.category],
+      severity: f.severity ?? DEFAULT_SEVERITY[f.category],
       category: f.category,
       tester: f.tester,
       file: f.file ?? null,
@@ -147,7 +153,7 @@ export function toBugs(findings: RawFinding[], projectId: string, runId: number)
       legacy_fingerprint: legacyFingerprint({ ...f, message }),
       ...base,
       evidence,
-      fix_prompt: buildPrompt({ ...base, summary: null, snippet: evidence.snippet, expected: null }),
+      fix_prompt: buildPrompt({ ...base, summary: null, snippet: evidence.snippet, log: evidence.log, expected: null }),
       first_seen_run: runId,
       last_seen_run: runId,
     });

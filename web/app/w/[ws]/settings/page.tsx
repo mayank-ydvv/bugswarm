@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { KeyRoundIcon, UsersIcon } from 'lucide-react';
+import { KeyRoundIcon, PencilIcon, TriangleAlertIcon, UsersIcon } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { ConfirmDelete } from '@/components/confirm-delete';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
+import { deleteWorkspace } from '../actions';
 import { GeminiKeyForm } from './gemini-key-form';
 import { MembersCard } from './members-card';
+import { RenameWorkspaceForm } from './rename-form';
 
 export const metadata: Metadata = { title: 'Workspace settings' };
 
@@ -43,6 +46,19 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
         <h1 className="text-xl font-semibold">Workspace settings</h1>
       </div>
 
+      {isOwner && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PencilIcon className="size-4" /> Name
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RenameWorkspaceForm key={workspace.name} workspaceId={ws} name={workspace.name} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -72,6 +88,25 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
           />
         </CardContent>
       </Card>
+
+      {isOwner && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TriangleAlertIcon className="size-4" /> Delete workspace
+            </CardTitle>
+            <CardDescription>Removes every project, scan, bug and invite in it. This cannot be undone.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConfirmDelete
+              label="Delete workspace"
+              name={workspace.name}
+              description="Every project, scan, bug and invite in this workspace is deleted for everyone. This cannot be undone."
+              action={deleteWorkspace.bind(null, ws)}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

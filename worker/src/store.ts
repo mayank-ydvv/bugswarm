@@ -1,6 +1,6 @@
 import type postgres from 'postgres';
 import type { Sql } from './db.ts';
-import type { BugRow } from './normalize.ts';
+import { TOOL_RATED, type BugRow } from './normalize.ts';
 
 const CHUNK = 1000;
 const COLUMNS = [
@@ -56,6 +56,7 @@ export async function upsertBugs(sql: Sql, rows: BugRow[]): Promise<number> {
         evidence = excluded.evidence,
         line = excluded.line,
         technical = excluded.technical,
+        severity = case when excluded.tester = any(${[...TOOL_RATED]}::text[]) then excluded.severity else bugs.severity end,
         -- Placeholder titles follow the latest tool message until the explainer writes a real one.
         title = case when bugs.explained then bugs.title else excluded.title end,
         fix_prompt = case when bugs.explained then bugs.fix_prompt else excluded.fix_prompt end,

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BugIcon, FolderGitIcon, GlobeIcon, SettingsIcon } from 'lucide-react';
@@ -11,6 +12,12 @@ import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
 import { canWrite, myRole } from '@/lib/server/role';
 import { AddProjectDialog } from './add-project-dialog';
+
+export async function generateMetadata({ params }: { params: Promise<{ ws: string }> }): Promise<Metadata> {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('workspaces').select('name').eq('id', uuidParam((await params).ws)).maybeSingle();
+  return { title: data?.name ?? 'Workspace' };
+}
 
 export default async function WorkspacePage({ params }: { params: Promise<{ ws: string }> }) {
   const ws = uuidParam((await params).ws);

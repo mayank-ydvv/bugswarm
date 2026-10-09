@@ -7,7 +7,7 @@ import { mapViolations } from './axe.ts';
 import { mapLighthouse } from './lighthouse.ts';
 import { reviewFindings } from './review.ts';
 import { directImports, isSource } from './source.ts';
-import { detectRunner, parseJestJson, parseTap } from './testgen.ts';
+import { detectRunner, isLoadFailure, parseJestJson, parseTap } from './testgen.ts';
 
 const TAP = `TAP version 13
 # Subtest: cartTotal sums
@@ -111,4 +111,25 @@ test('review findings are capped and carry the file', () => {
   assert.equal(f.length, 5);
   assert.equal(f[0]!.file, 'src/a.js');
   assert.equal(f[0]!.rule, 'ai-review');
+});
+
+test('a test file that crashes while loading is not reported as a bug', () => {
+  const [f] = parseTap(
+    [
+      "not ok 1 - /app/.bugswarm-tests/1-App.test.mjs",
+      '  ---',
+      '  duration_ms: 251.6',
+      "  location: '/app/.bugswarm-tests/1-App.test.mjs:1:1'",
+      "  failureType: 'testCodeFailure'",
+      "  error: 'test failed'",
+      "  code: 'ERR_TEST_FAILURE'",
+      '  ...',
+    ].join('\n'),
+  );
+  assert.ok(f);
+  assert.equal(isLoadFailure(f, '.bugswarm-tests/1-App.test.mjs'), true);
+  assert.equal(
+    isLoadFailure({ file: f.file, name: 'adds two numbers', error: 'Expected values to be strictly equal', log: '' }, '.bugswarm-tests/1-App.test.mjs'),
+    false,
+  );
 });

@@ -38,6 +38,9 @@ async function loop(worker: number): Promise<void> {
     }
 
     const runId = Number(msg.message.run_id);
+    // pgmq.read hides the message for 30 minutes, the same as the run limit, so a run near the limit
+    // would reappear and be taken over while still finishing. Extend it past the limit plus cleanup.
+    await sql`select pgmq.set_vt('runs', ${msg.msg_id}::bigint, ${LIMITS.runMs / 1000 + 600})`.catch(() => {});
     try {
       if (!Number.isSafeInteger(runId)) throw new Error(`bad message ${JSON.stringify(msg.message)}`);
       await handleRun(deps, runId, msg.read_ct, shutdown.signal);

@@ -8,9 +8,9 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // `next build`/`next start` run with NODE_ENV=production; a separate dir lets a build run
-  // while `next dev` is up without corrupting its output.
-  distDir: process.env.NODE_ENV === 'production' ? '.next-prod' : '.next',
+  // `next build`/`next start` run with NODE_ENV=production; a separate dir lets a local build run
+  // while `next dev` is up without corrupting its output. Vercel expects the default `.next`.
+  distDir: process.env.NODE_ENV === 'production' && !process.env.VERCEL ? '.next-prod' : '.next',
 };
 
 export default nextConfig;

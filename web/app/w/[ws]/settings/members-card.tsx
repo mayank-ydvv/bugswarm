@@ -140,7 +140,11 @@ function InviteForm({
   const [state, action, creating] = useActionState<InviteState, FormData>(createInvite.bind(null, workspaceId), {});
   const [role, setRole] = useState('member');
   const [copied, setCopied] = useState(false);
-  const link = state.token ? `${typeof window === 'undefined' ? '' : window.location.origin}/invite/${state.token}` : null;
+  // Hide the one-time link once its invite is revoked (it drops out of the pending list), so a dead
+  // link isn't left on screen to copy.
+  const stillPending = invites.some((i) => i.email.toLowerCase() === state.email?.toLowerCase());
+  const link =
+    state.token && stillPending ? `${typeof window === 'undefined' ? '' : window.location.origin}/invite/${state.token}` : null;
 
   return (
     <div className="grid gap-3 border-t pt-4">

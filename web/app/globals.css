@@ -128,3 +128,25 @@
     @apply font-sans;
   }
 }
+/* Landing page: carousel card entrance and smooth in-page navigation. */
+@keyframes swarm-in {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+html:has(#manifesto) {
+  scroll-behavior: smooth;
+  background: #000;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(#manifesto) {
+    scroll-behavior: auto;
+  }
+}

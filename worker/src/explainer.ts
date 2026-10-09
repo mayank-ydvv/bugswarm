@@ -98,13 +98,13 @@ export async function explainPending(
   ai: AiClient,
   projectId: string,
   usage: AiUsage,
-  opts: { maxBatches: number; log: (m: string) => void },
+  opts: { maxBatches: number; log: (m: string) => void; signal?: AbortSignal },
 ): Promise<{ explained: number; batches: number; deferred: boolean }> {
   if (!ai.enabled) return { explained: 0, batches: 0, deferred: false };
   let explained = 0;
   let batches = 0;
 
-  while (batches < opts.maxBatches) {
+  while (batches < opts.maxBatches && !opts.signal?.aborted) {
     const pending = await sql<PendingBug[]>`
       select id, category, tester, technical, file, line, url, repro_steps,
              evidence->>'snippet' as snippet, severity

@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { Database } from '@/lib/database.types';
 
-const PROTECTED_PREFIXES = ['/w'];
+const PROTECTED_PREFIXES = ['/w', '/invite'];
 
 /** Refreshes the auth cookie and sends signed-out visitors of app pages back to `/`. */
 export async function updateSession(request: NextRequest) {

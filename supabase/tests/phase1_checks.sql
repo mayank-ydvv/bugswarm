@@ -79,8 +79,9 @@ reset role;
 insert into results values ('exactly one message queued',
   (select m.queue_length = b.queue_length + 1 from pgmq.metrics('runs') m, before b));
 
-select case when ok then 'PASS' else 'FAIL' end as result, check_name from results;
-select bool_or(not ok) as failed from results \gset
+select case when ok then 'PASS' when ok is null then 'FAIL (null)' else 'FAIL' end as result, check_name from results;
+-- "is not true": a NULL (unevaluable) check must fail, not pass.
+select coalesce(bool_or(ok is not true), true) as failed from results \gset
 rollback;
 \if :failed
   \echo 'Some checks FAILED'

@@ -2,11 +2,12 @@ import { createHash } from 'node:crypto';
 import { buildPrompt } from './prompt.ts';
 import type { Category, Evidence, RawFinding, Severity } from './types.ts';
 
-/** Volatile parts of a message (quoted names, numbers, hashes) must not change the fingerprint. */
-export function normalize(msg: string): string {
+const QUOTED = /(["'`])((?:(?!\1).)*)\1/g;
+/** A quoted code identifier like 'discount' or `user.id`: it names *which* thing is wrong. */
+const IDENTIFIER = /^[a-z_$][\w$]*(\.[a-z_$][\w$]*)*$/;
+
+function normalizeRest(msg: string): string {
   return msg
-    .toLowerCase()
-    .replace(/(["'`])(?:(?!\1).)*\1/g, 'S')
     .replace(/\b0x[0-9a-f]+\b/g, 'H')
     .replace(/\b[0-9a-f]{7,}\b/g, (m) => (/[a-f]/.test(m) && /\d/.test(m) ? 'H' : m))
     .replace(/\b\d+\b/g, 'N')
@@ -14,10 +15,38 @@ export function normalize(msg: string): string {
     .trim();
 }
 
-export function fingerprint(f: Pick<RawFinding, 'category' | 'rule' | 'file' | 'message'>): string {
+/**
+ * Volatile parts of a message (quoted values, numbers, hashes) must not change the fingerprint, but
+ * quoted identifiers stay: "'discount' is unused" and "'total' is unused" in one file are two bugs.
+ */
+export function normalize(msg: string): string {
+  return normalizeRest(
+    msg.toLowerCase().replace(QUOTED, (_m, q: string, inner: string) =>
+      inner.length <= 60 && IDENTIFIER.test(inner) ? `${q}${inner}${q}` : 'S',
+    ),
+  );
+}
+
+/** The original rule (every quoted string -> S). Only used to adopt bugs fingerprinted before v2. */
+export function normalizeLegacy(msg: string): string {
+  return normalizeRest(msg.toLowerCase().replace(QUOTED, 'S'));
+}
+
+type FingerprintInput = Pick<RawFinding, 'category' | 'rule' | 'file' | 'message'>;
+
+function hash(f: FingerprintInput, normalized: string): string {
   return createHash('sha1')
-    .update([f.category, f.rule, f.file ?? '', normalize(f.message)].join('|'))
+    .update([f.category, f.rule, f.file ?? '', normalized].join('|'))
     .digest('hex');
+}
+
+export function fingerprint(f: FingerprintInput): string {
+  return hash(f, normalize(f.message));
+}
+
+/** Identical to fingerprint() for messages without quoted identifiers, so most bugs never change. */
+export function legacyFingerprint(f: FingerprintInput): string {
+  return hash(f, normalizeLegacy(f.message));
 }
 
 export const DEFAULT_SEVERITY: Record<Category, Severity> = {
@@ -70,6 +99,8 @@ function cleanEvidence(e: Evidence | undefined): Evidence {
 export interface BugRow {
   project_id: string;
   fingerprint: string;
+  /** Pre-v2 fingerprint; lets an existing bug row be adopted instead of duplicated. Not a column. */
+  legacy_fingerprint: string;
   title: string;
   technical: string;
   severity: Severity;
@@ -113,6 +144,7 @@ export function toBugs(findings: RawFinding[], projectId: string, runId: number)
     byFp.set(fp, {
       project_id: projectId,
       fingerprint: fp,
+      legacy_fingerprint: legacyFingerprint({ ...f, message }),
       ...base,
       evidence,
       fix_prompt: buildPrompt({ ...base, summary: null, snippet: evidence.snippet, expected: null }),

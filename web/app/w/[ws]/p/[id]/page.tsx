@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SCHEDULE_LABEL } from '@/lib/format';
 import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
+import { canWrite, myRole } from '@/lib/server/role';
 import { healthScore, SEVERITIES, type Severity } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { bugPageQuery, DEFAULT_FILTERS } from '@/lib/bugs';
@@ -19,9 +20,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
   const raw = await params;
   const ws = uuidParam(raw.ws);
   const id = uuidParam(raw.id);
-  const { supabase } = await requireUser();
+  const { supabase, userId } = await requireUser();
 
-  const [project, workspace, runs, counts, bugs, worker] = await Promise.all([
+  const [project, workspace, runs, counts, bugs, worker, role] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, repo_url, branch, live_url, schedule')
@@ -34,7 +35,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
     // Default view: open, critical -> low, newest first. Enum order makes `severity asc` the rank.
     bugPageQuery(supabase, id, DEFAULT_FILTERS, null),
     supabase.from('worker_status').select('online, last_seen_at').maybeSingle(),
+    myRole(supabase, ws, userId),
   ]);
+  const writable = canWrite(role);
   for (const r of [project, workspace, runs, counts, bugs]) if (r.error) throw new Error(r.error.message);
   if (!project.data || !workspace.data) notFound();
 
@@ -75,12 +78,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
             </span>
           </div>
         </div>
+        {writable && (
         <Button variant="outline" size="sm" asChild>
           <Link href={`/w/${ws}/p/${id}/settings`}>
             <SettingsIcon className="size-4" />
             Settings
           </Link>
         </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -113,12 +118,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem]">
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="text-base font-semibold">Bugs</h2>
-          <BugList projectId={id} workspaceId={ws} initial={bugs.data ?? []} />
+          <BugList projectId={id} workspaceId={ws} initial={bugs.data ?? []} canWrite={writable} />
         </section>
         <section className="min-w-0">
           <RunPanel
             projectId={id}
             initialRuns={runs.data ?? []}
+            canRun={writable}
             workerOnline={worker.data?.online ?? false}
             workerLastSeen={worker.data?.last_seen_at ?? null}
           />

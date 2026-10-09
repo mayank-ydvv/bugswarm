@@ -21,7 +21,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
   const id = uuidParam(raw.id);
   const { supabase } = await requireUser();
 
-  const [project, workspace, runs, counts, bugs] = await Promise.all([
+  const [project, workspace, runs, counts, bugs, worker] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, repo_url, branch, live_url, schedule')
@@ -33,6 +33,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
     supabase.from('project_bug_counts').select('severity, open_count').eq('project_id', id),
     // Default view: open, critical -> low, newest first. Enum order makes `severity asc` the rank.
     bugPageQuery(supabase, id, DEFAULT_FILTERS, null),
+    supabase.from('worker_status').select('online, last_seen_at').maybeSingle(),
   ]);
   for (const r of [project, workspace, runs, counts, bugs]) if (r.error) throw new Error(r.error.message);
   if (!project.data || !workspace.data) notFound();
@@ -115,7 +116,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ ws: st
           <BugList projectId={id} workspaceId={ws} initial={bugs.data ?? []} />
         </section>
         <section className="min-w-0">
-          <RunPanel projectId={id} initialRuns={runs.data ?? []} />
+          <RunPanel
+            projectId={id}
+            initialRuns={runs.data ?? []}
+            workerOnline={worker.data?.online ?? false}
+            workerLastSeen={worker.data?.last_seen_at ?? null}
+          />
         </section>
       </div>
     </div>

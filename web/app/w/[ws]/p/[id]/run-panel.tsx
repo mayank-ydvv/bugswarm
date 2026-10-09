@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDownIcon, PlayIcon } from 'lucide-react';
+import { AlertTriangleIcon, ChevronDownIcon, PlayIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { RunStatusBadge, ScanBadge, TriggerBadge } from '@/components/run-badges';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,17 @@ function useLiveRuns(projectId: string, initial: Run[]) {
   return { runs: sorted, upsert };
 }
 
-export function RunPanel({ projectId, initialRuns }: { projectId: string; initialRuns: Run[] }) {
+export function RunPanel({
+  projectId,
+  initialRuns,
+  workerOnline,
+  workerLastSeen,
+}: {
+  projectId: string;
+  initialRuns: Run[];
+  workerOnline: boolean;
+  workerLastSeen: string | null;
+}) {
   const { runs, upsert } = useLiveRuns(projectId, initialRuns);
   const [submitting, setSubmitting] = useState(false);
   const latest = runs[0];
@@ -102,6 +112,19 @@ export function RunPanel({ projectId, initialRuns }: { projectId: string; initia
           </DropdownMenu>
         </div>
       </div>
+
+      {!workerOnline && (
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+          <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p>
+            <span className="font-medium">No worker is running.</span>{' '}
+            <span className="text-muted-foreground">
+              Runs wait in the queue until one starts
+              {workerLastSeen ? ` (last seen ${relativeTime(workerLastSeen)})` : ''}.
+            </span>
+          </p>
+        </div>
+      )}
 
       {latest && <LatestRun run={latest} />}
 

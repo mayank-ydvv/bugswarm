@@ -51,11 +51,14 @@ export function ProjectForm({
     {},
   );
   const [schedule, setSchedule] = useState<Schedule>(initial.schedule);
+  // After a failed submit React resets the form to its defaultValues, so point them at what was typed.
+  const v = state.values;
+  const text = (key: keyof ProjectValues, fallback: string | number | null) => v?.[key] ?? fallback ?? '';
 
   return (
     <form action={formAction} className="grid gap-4">
       <Field id="name" label="Name">
-        <Input id="name" name="name" defaultValue={initial.name} maxLength={80} required placeholder="My app" />
+        <Input id="name" name="name" defaultValue={text('name', initial.name)} maxLength={80} required placeholder="My app" />
       </Field>
       <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
         <Field id="repo_url" label="GitHub repo URL" hint="Public HTTPS clone URL">
@@ -63,12 +66,12 @@ export function ProjectForm({
             id="repo_url"
             name="repo_url"
             type="url"
-            defaultValue={initial.repo_url ?? ''}
+            defaultValue={text('repo_url', initial.repo_url)}
             placeholder="https://github.com/acme/app"
           />
         </Field>
         <Field id="branch" label="Branch">
-          <Input id="branch" name="branch" defaultValue={initial.branch} />
+          <Input id="branch" name="branch" defaultValue={text('branch', initial.branch)} />
         </Field>
       </div>
       <Field id="live_url" label="Live URL" hint="Optional. Tested instead of starting the app in a sandbox.">
@@ -76,16 +79,16 @@ export function ProjectForm({
           id="live_url"
           name="live_url"
           type="url"
-          defaultValue={initial.live_url ?? ''}
+          defaultValue={text('live_url', initial.live_url)}
           placeholder="https://staging.acme.com"
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <Field id="start_cmd" label="Start command">
-          <Input id="start_cmd" name="start_cmd" defaultValue={initial.start_cmd} className="font-mono" />
+          <Input id="start_cmd" name="start_cmd" defaultValue={text('start_cmd', initial.start_cmd)} className="font-mono" />
         </Field>
         <Field id="port" label="Port">
-          <Input id="port" name="port" type="number" min={1} max={65535} defaultValue={initial.port} />
+          <Input id="port" name="port" type="number" min={1} max={65535} defaultValue={text('port', initial.port)} />
         </Field>
       </div>
       <Field id="schedule" label="Schedule">

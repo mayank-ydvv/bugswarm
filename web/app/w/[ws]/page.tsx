@@ -9,11 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { relativeTime, SCHEDULE_LABEL } from '@/lib/format';
 import { requireUser } from '@/lib/server/auth';
 import { uuidParam } from '@/lib/server/params';
+import { canWrite, myRole } from '@/lib/server/role';
 import { AddProjectDialog } from './add-project-dialog';
 
 export default async function WorkspacePage({ params }: { params: Promise<{ ws: string }> }) {
   const ws = uuidParam((await params).ws);
-  const { supabase } = await requireUser();
+  const { supabase, userId } = await requireUser();
 
   const [{ data: workspace }, { data: projects, error }] = await Promise.all([
     supabase.from('workspaces').select('id, name').eq('id', ws).maybeSingle(),
@@ -24,6 +25,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ ws: 
       .order('created_at', { ascending: false }),
   ]);
   if (!workspace) notFound();
+  const writable = canWrite(await myRole(supabase, ws, userId));
   if (error) throw new Error(error.message);
 
   return (
@@ -39,7 +41,7 @@ export default async function WorkspacePage({ params }: { params: Promise<{ ws: 
               <SettingsIcon className="size-4" />
             </Link>
           </Button>
-          <AddProjectDialog workspaceId={ws} />
+          {writable && <AddProjectDialog workspaceId={ws} />}
         </div>
       </div>
 

@@ -217,8 +217,14 @@ The build runs in 4 gated phases.
 - **Phase 3 "done" check (run 67):** with a wrong server GEMINI_KEY, Gemini returned HTTP 400, OpenRouter served the call, and 11/11 bugs were explained. `ai_usage` = `{"openrouter:nvidia/nemotron-3-super-120b-a12b:free": …}`.
 - **Workspace key (run 66):** the Demo workspace's own key, saved in settings, replaced the server key.
 
+### GitHub sign-in and real webhook (2026-10-09)
+- **GitHub OAuth app "BugSwarm (local)":** callback `http://127.0.0.1:54321/auth/v1/callback`; its values are in `.env`. Turned on in `supabase/config.toml`. The redirect allow-list uses `/**`, so `/auth/callback?next=…` matches. Signed in as mayank-ydvv.
+- **Sample on GitHub:** https://github.com/mayank-ydvv/bugswarm-buggy-app (public; deliberate bugs and a fake token). Project "Buggy app (GitHub)" (schedule off) points at it.
+- **Webhook:** reached through a Cloudflare quick tunnel. GitHub's ping returned 200 (signature verified). A real push (`7b2c15d`) created run 70 (trigger=push) within 3 seconds; the worker cloned from GitHub and did a full scan (84s, 22 bugs; the type error fixed in that commit was not reported). The tunnel is stopped now, so GitHub deliveries will fail until a new public URL is set.
+- **Fixed:** tester and run hard limits (an overnight Storefront run showed testers outliving 10 minutes and a second worker taking over a run still in progress).
+
 ### Still to do
-- A real GitHub webhook pointing at a public URL for the web app (for example a tunnel or a deployed instance).
+- Deploy (hosted Supabase plus a server for the worker and web app), then point the webhook at the deployed URL.
 - **Free-tier note:** `gemini-3.8-flash` rate-limits quickly, so a first full scan with AI review spends minutes in backoff (run 65 took 231s). Lower `REVIEW_MAX_CALLS` if that matters; the cache makes later runs fast.
 
 ## How to run

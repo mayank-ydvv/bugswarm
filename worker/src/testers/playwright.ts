@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium, devices, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { Category, RawFinding, Tester, TesterContext } from '../types.ts';
 import { skip } from './util.ts';
@@ -8,6 +11,9 @@ const MAX_BUTTONS = 10;
 const MOBILE_PAGES = 10;
 const GOTO_TIMEOUT_MS = 15_000;
 const SETTLE_MS = 500;
+/** Click errors replayed on video per run (each is a short separate recording). */
+const MAX_VIDEOS = 3;
+const BUTTON_SELECTOR = 'button, [role="button"], input[type="submit"], input[type="button"]';
 /** Soft budget inside the 10-minute tester limit: stop crawling and keep what was found. */
 const CRAWL_BUDGET_MS = 8 * 60_000;
 
@@ -31,8 +37,16 @@ export function crawlable(href: string, origin: string): string | null {
   return u.toString();
 }
 
+/** Enough to replay one failing click in a fresh, recorded browser session. */
+interface ClickRepro {
+  finding: RawFinding;
+  url: string;
+  index: number;
+}
+
 class Crawl {
   readonly findings: RawFinding[] = [];
+  readonly clickRepros: ClickRepro[] = [];
   readonly events: Event[] = [];
   readonly origin: string;
   readonly ctx: TesterContext;
@@ -84,8 +98,10 @@ class Crawl {
     }
   }
 
-  add(f: Omit<RawFinding, 'tester'>) {
-    this.findings.push({ tester: 'playwright', ...f });
+  add(f: Omit<RawFinding, 'tester'>): RawFinding {
+    const finding: RawFinding = { tester: 'playwright', ...f };
+    this.findings.push(finding);
+    return finding;
   }
 
   watch(page: Page) {
@@ -182,7 +198,7 @@ async function visit(crawl: Crawl, page: Page, url: string): Promise<string[] | 
 }
 
 async function buttonLabel(page: Page, i: number): Promise<string> {
-  const b = page.locator('button, [role="button"], input[type="submit"], input[type="button"]').nth(i);
+  const b = page.locator(BUTTON_SELECTOR).nth(i);
   const text = (await b.innerText({ timeout: 1_000 }).catch(() => '')).trim();
   const label =
     text ||
@@ -194,7 +210,7 @@ async function buttonLabel(page: Page, i: number): Promise<string> {
 }
 
 async function clickButtons(crawl: Crawl, page: Page, url: string) {
-  const buttons = page.locator('button, [role="button"], input[type="submit"], input[type="button"]');
+  const buttons = page.locator(BUTTON_SELECTOR);
   const count = Math.min(await buttons.count().catch(() => 0), 50);
   let clicked = 0;
   for (let i = 0; i < count && clicked < MAX_BUTTONS; i++) {
@@ -216,7 +232,7 @@ async function clickButtons(crawl: Crawl, page: Page, url: string) {
     const errors = unique(crawl.events.slice(mark)).filter((e) => e.kind !== 'response' || /HTTP 5/.test(e.text));
     if (errors.length > 0) {
       const first = errors[0]!;
-      crawl.add({
+      const finding = crawl.add({
         rule: 'click-error',
         category: 'logic',
         message: `Clicking '${label}' throws: ${first.text}`,
@@ -224,10 +240,50 @@ async function clickButtons(crawl: Crawl, page: Page, url: string) {
         repro: [...crawl.openSteps(url), `Click '${label}'`, 'Open the browser console'],
         evidence: { screenshot: await crawl.screenshot(page), log: errors.map((e) => e.detail || e.text).join('\n\n') },
       });
+      crawl.clickRepros.push({ finding, url, index: i });
     }
     if (page.url() !== url) {
       await page.goto(url, { waitUntil: 'load', timeout: GOTO_TIMEOUT_MS }).catch(() => {});
     }
+  }
+}
+
+/**
+ * Replay failing clicks in a fresh context that records video, so the bug detail page can show what
+ * happened. Best-effort: a failed recording leaves the finding as it is.
+ */
+async function recordClickVideos(crawl: Crawl, browser: Browser) {
+  const repros = crawl.clickRepros.slice(0, MAX_VIDEOS);
+  if (repros.length === 0) return;
+  const dir = await mkdtemp(join(tmpdir(), 'bs-video-'));
+  try {
+    for (const r of repros) {
+      if (crawl.stop()) return;
+      const context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+        viewport: { width: 1280, height: 800 },
+        recordVideo: { dir, size: { width: 1280, height: 800 } },
+      });
+      try {
+        const page = await context.newPage();
+        page.on('dialog', (d) => void d.dismiss().catch(() => {}));
+        await page.goto(r.url, { waitUntil: 'load', timeout: GOTO_TIMEOUT_MS });
+        await page.waitForTimeout(800); // let the viewer see the page before the click
+        await page.locator(BUTTON_SELECTOR).nth(r.index).click({ timeout: 2_000 });
+        await page.waitForTimeout(1_500);
+        const video = page.video();
+        await context.close(); // the file is complete only after the context closes
+        if (!video) continue;
+        const path = await crawl.ctx.upload(await readFile(await video.path()), 'webm');
+        r.finding.evidence = { ...r.finding.evidence, video: path };
+      } catch (err) {
+        crawl.ctx.log(`video for ${crawl.path(r.url)} failed: ${err instanceof Error ? err.message.split('\n')[0] : err}`);
+      } finally {
+        await context.close().catch(() => {});
+      }
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 }
 
@@ -334,6 +390,8 @@ export const playwright: Tester = {
       await desktop.close();
       // Lighthouse and axe test the same pages.
       ctx.publishCrawl(visited);
+
+      await recordClickVideos(crawl, browser);
 
       const mobile = await browser.newContext({ ...devices['iPhone 13'], ignoreHTTPSErrors: true });
       await mobilePass(crawl, mobile, visited);

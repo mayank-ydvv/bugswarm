@@ -1,5 +1,7 @@
 # BugSwarm
 
+**Live site: [bugswarm.vercel.app](https://bugswarm.vercel.app)**
+
 Add a project (GitHub repo and/or live URL) and a swarm of automated testers keeps testing it. It finds
 bugs, lists them in plain English, and gives each one a ready-to-paste Claude Code fix prompt.
 
